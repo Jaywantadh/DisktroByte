@@ -1,0 +1,3 @@
+node_id: \"disktrobyte-node-1\"
+port: 8080
+storage_path: \"./data\"

@@ -1,0 +1,34 @@
+FOLDER STRUCTURE
+
+disktrobyte/
+├── cmd/
+│   ├── cli/
+│   │   └── main.go             # CLI entry point
+│   └── gui/                    # GUI entry (to be developed later)
+├── internal/
+│   ├── peer/                   # Node peer logic
+│   ├── chunker/                # File chunking logic
+│   ├── compressor/             # Compression algorithms and strategy
+│   ├── encryptor/              # Encryption logic and algorithm choice
+│   ├── storage/                # Pluggable storage backends
+│   ├── metadata/               # Metadata manager (e.g., BadgerDB abstraction)
+│   ├── distributor/            # Distribution + Replication manager
+│   ├── discovery/              # P2P node discovery and connection
+│   ├── transfer/               # Upload/download logic
+│   └── utils/                  # Helper functions and utilities
+├── pkg/                        # Public-facing packages
+├── config/                     # Config files (YAML, JSON)
+│   ├── config.go               # Config loader using Viper
+│   └── config.yaml             # Default config template
+├── scripts/                    # Helper scripts (e.g., benchmarks)
+├── web/                        # Frontend (to be developed later)
+│   └── tauri/                  # Tauri-based GUI wrapper
+├── tests/                      # Integration and unit tests
+├── api/                        # gRPC or REST APIs
+├── .env                        # Environment variables template
+├── .gitignore
+├── go.mod                      # Go module dependencies
+├── go.sum
+├── Makefile                    # Common CLI tasks (build, run, test)
+├── README.md                   # Project overview and usage
+└── LICENSE
