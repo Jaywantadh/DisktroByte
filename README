@@ -32,3 +32,13 @@ disktrobyte/
 ├── Makefile                    # Common CLI tasks (build, run, test)
 ├── README.md                   # Project overview and usage
 └── LICENSE
+
+
+
+NODE FOLDER PLAN:
+    /internal/registry         ← node registration logic
+    /internal/types            ← structs: Node, NodeInfo, etc.
+    /cmd/cli/main.go           ← boot + CLI runner
+    /pkg/httpserver            ← REST layer for /join, /ping
+    /pkg/gui                   <-for grpahical interface
+    

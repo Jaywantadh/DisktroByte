@@ -9,9 +9,10 @@ import (
 
 // AppConfig holds the application-level configuration
 type AppConfig struct {
-	NodeID      string `mapstructure:"node_id"`
-	Port        int    `mapstructure:"port"`
-	StoragePath string `mapstructure:"storage_path"`
+	NodeID           string `mapstructure:"node_id"`
+	Port             int    `mapstructure:"port"`
+	StoragePath      string `mapstructure:"storage_path"`
+	ParallelismRatio int    `mapstructure:"parallelism_ratio"`
 }
 
 var Config *AppConfig
@@ -26,6 +27,7 @@ func LoadConfig(path string) {
 	viper.SetDefault("node_id", "disktrobyte-default-node")
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("storage_path", "./data")
+	viper.SetDefault("parallelism_ratio", 2)
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("⚠️ Could not read config file, using defaults: %v", err)
