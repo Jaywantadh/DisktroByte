@@ -4,8 +4,8 @@ A revolutionary peer-to-peer distributed file system built in Go, featuring auto
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [System Architecture](#System_Architecture)
+- [Overview](#Overview)
+- [System Architecture](#System-Architecture)
 - [Key Features](#key-features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
