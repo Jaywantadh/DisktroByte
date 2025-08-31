@@ -117,6 +117,10 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
    make gui
    ```
 
+## Data Flow
+
+![Data-Flow](https://github.com/Jaywantadh/Images/blob/main/DataFlow.png)
+
 ## 🚀 Quick Start
 
 ### 1. Start the Application
