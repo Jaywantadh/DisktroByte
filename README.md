@@ -2,6 +2,11 @@
 
 A revolutionary peer-to-peer distributed file system built in Go, featuring automatic file chunking, compression, encryption, and distributed storage across a network of nodes.
 
+## Documentation
+### Tap here ⬇️
+
+[![Documentation](https://github.com/Jaywantadh/Images/blob/main/DisktroByteLogo.png)](https://long-phase-95351982.figma.site/#overview)
+
 ## 📋 Table of Contents
 
 - [Overview](#Overview)
