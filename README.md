@@ -54,7 +54,7 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 │        │        │    │        │        │    │        │        │
 │  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
 │  │ File      │  │    │  │ File      │  │    │  │ File      │  │
-│  │ Distributor│  │    │  │ Distributor│  │    │  │ Distributor│  │
+│  │ Distrbtr. │  │    │  │ Distribtr.│  │    │  │ Distribtr.│  │
 │  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
 │        │        │    │        │        │    │        │        │
 │  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
