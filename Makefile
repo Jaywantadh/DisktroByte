@@ -5,10 +5,19 @@ BUILD_DIR=bin
 run: 
 	go run ./cmd/cli/main.go
 
+.PHONY: gui
+gui:
+	go run ./cmd/cli/main.go
+
 .PHONY: build
 build:
 	mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(APP_NAME) ./cmd/cli/main.go
+
+.PHONY: build-gui
+build-gui:
+	mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(APP_NAME)-gui ./cmd/cli/main.go
 
 .PHONY: test
 test: 
@@ -21,8 +30,10 @@ clean:
 .PHONY: help
 help:
 	@echo "Useful make commands:"
-	@echo "	make run	- Run the application"
-	@echo "	make build	- Build binary to ./bin"
+	@echo "	make run	- Run the CLI application"
+	@echo "	make gui	- Run the GUI application (web-based)"
+	@echo "	make build	- Build CLI binary to ./bin"
+	@echo "	make build-gui	- Build GUI binary to ./bin"
 	@echo "	make test	- Run all unit tests"
 	@echo "	make clean	- Delete ./bin folder"
 

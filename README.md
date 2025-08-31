@@ -12,6 +12,44 @@ DisktroByte is a lightweight, high-performance, enterprise-ready P2P distributed
 -   **Pluggable Storage:** Supports different storage backends, with a local filesystem implementation provided.
 -   **File Transfer:** A client-server model for transferring files between peers.
 -   **CLI Interface:** A command-line interface for interacting with the application.
+-   **Web GUI:** A modern web-based graphical user interface for easy file management.
+
+## GUI Interface
+
+DisktroByte now includes a modern web-based GUI that provides an intuitive interface for all operations:
+
+### Starting the GUI
+
+```bash
+# Run the GUI directly
+go run cmd/cli/main.go
+
+# Or use the make command
+make gui
+```
+
+The GUI will start a local web server (default port 8080) and automatically open in your browser. If it doesn't open automatically, navigate to `http://localhost:8080`.
+
+### GUI Features
+
+- **🔐 Password Management:** Secure password input for encryption/decryption
+- **📦 File Chunking:** Drag-and-drop or browse to select files for chunking
+- **🔧 File Reassembly:** Reassemble files from chunks with original filename
+- **📤 File Upload:** Upload files to peers with progress tracking
+- **🌐 Server Management:** Start and manage the P2P server
+- **📊 Real-time Logs:** Live log output with timestamps
+- **⚡ Progress Tracking:** Visual progress bars for all operations
+- **🎨 Modern UI:** Responsive design with beautiful gradients and animations
+
+### GUI Workflow
+
+1. **Set Password:** Enter your encryption password in the top section
+2. **Choose Operation:** Use the tabbed interface to select your desired operation
+3. **Configure Settings:** Fill in the required fields for your operation
+4. **Execute:** Click the action button and monitor progress
+5. **Monitor Logs:** Watch real-time logs in the bottom section
+
+The GUI maintains all the security and functionality of the CLI while providing a user-friendly interface.
 
 ## Project Structure
 

@@ -42,3 +42,4 @@ func LoadConfig(path string) {
 
 	fmt.Println("✅ Configuration loaded successfully.")
 }
+	
