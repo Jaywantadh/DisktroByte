@@ -1,6 +1,6 @@
 # 🚀 DisktroByte - P2P Distributed File System
 
-A revolutionary peer-to-peer distributed file system built in Go, featuring automatic file chunking, compression, encryption, and distributed storage across a network of nodes.
+A revolutionary peer-to-peer distributed file system built in Go, featuring automatic file chunking, compression, encryption, distributed storage, and intelligent file reassembly across a network of nodes.
 
 ## 📋 Table of Contents
 
@@ -25,8 +25,10 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 - **📦 Intelligent compression** with LZ4 algorithm
 - **🌐 P2P networking** for decentralized storage
 - **🔄 Automatic replication** for fault tolerance
-- **📱 Web-based GUI** for easy management
+- **🔧 File reassembly** with intelligent chunk reconstruction
+- **📱 Modern Web GUI** with real-time updates
 - **⚡ High performance** with parallel processing
+- **🔍 Smart file management** with metadata tracking
 
 ### Use Cases
 
@@ -94,9 +96,11 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 - **Fault Tolerance**: Automatic failover and recovery mechanisms
 
 ### 🎨 User Interface
-- **Modern Web GUI**: Beautiful, responsive interface
+- **Modern Web GUI**: Beautiful, responsive interface with role-based access
+- **File Reassembly Dashboard**: Intuitive file management and reassembly interface
 - **Real-time Updates**: Live status updates and progress tracking
 - **Cross-platform**: Works on Windows, macOS, and Linux
+- **Authentication System**: Secure user management with session handling
 - **Intuitive Design**: Easy-to-use interface for all skill levels
 
 ## 🛠️ Installation
@@ -122,19 +126,23 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 
 3. **Build the Application**
    ```bash
-   go build ./cmd/cli
+   # Build the GUI version (recommended)
+   go build -o disktroByte.exe ./cmd/gui
+   
+   # Or build the CLI version
+   go build -o disktroByte-cli.exe ./cmd/cli
    ```
 
 4. **Run the Application**
    ```bash
-   # Option 1: Direct execution
+   # Option 1: Run the GUI version
+   ./disktroByte.exe
+   
+   # Option 2: Direct execution
+   go run ./cmd/gui/main.go
+   
+   # Option 3: CLI version
    go run ./cmd/cli/main.go
-   
-   # Option 2: Using the provided script (Windows)
-   start-gui.bat
-   
-   # Option 3: Using Make (if available)
-   make gui
    ```
 
 ## 🚀 Quick Start
@@ -142,7 +150,11 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 ### 1. Start the Application
 
 ```bash
-go run ./cmd/cli/main.go
+# Run the GUI version
+go run ./cmd/gui/main.go
+
+# Or run the built executable
+./disktroByte.exe
 ```
 
 ### 2. Access the Web Interface
@@ -151,25 +163,35 @@ Open your browser and navigate to:
 ```
 http://localhost:8080
 ```
+*Note: If port 8080 is busy, the application will automatically use the next available port*
 
-### 3. Set Your Password
+### 3. Create Account & Login
 
-1. Enter your encryption password in the password field
-2. Click "Set Password"
-3. This password will be used for all file operations
+1. Click "Register" to create a new account
+2. Fill in username, password, and optional details
+3. Login with your credentials
+4. The system will create a secure session for your operations
 
 ### 4. Upload and Distribute Files
 
-1. Go to the "Chunk Files" tab
+1. Go to the "Send Files" tab
 2. Select a file to upload
-3. Click "Chunk File"
+3. Click "Send File"
 4. Watch as your file is automatically:
    - Chunked into smaller pieces
    - Compressed (if beneficial)
-   - Encrypted with your password
+   - Encrypted securely
    - Distributed across the network
 
-### 5. View Network Status
+### 5. File Reassembly
+
+1. Go to the "File Reassembly" (🔧) tab
+2. Click "Refresh Available Files" to load files
+3. Browse available files with completion status
+4. Click "Reassemble" or "Prepare" for demo files
+5. Download completed files directly from the interface
+
+### 6. View Network Status
 
 1. Go to the "Network" tab
 2. Click "Refresh Network"
@@ -197,23 +219,32 @@ http://localhost:8080
 - Chunks are encrypted with your password
 - Chunks are stored locally and distributed to peers
 
-#### Reassembling Files
-**Purpose**: Reconstruct original files from distributed chunks
+#### File Reassembly
+**Purpose**: Reconstruct original files from distributed chunks with intelligent management
 
 **Steps**:
-1. Go to "Files" tab
-2. Click "Refresh Files" to load your file list
-3. Click "Reassemble" on any file
-4. Enter the output path for the reassembled file
-5. Wait for completion
+1. Go to "File Reassembly" (🔧) tab
+2. Click "Refresh Available Files" to load your file list
+3. View file completion status and chunk availability
+4. Click "Reassemble" (for real files) or "Prepare" (for demo files)
+5. Monitor real-time progress and status updates
+6. Download completed files directly from the interface
+
+**Features**:
+- **Visual Progress Tracking**: Real-time progress bars and status updates
+- **File Type Detection**: Smart icons and handling for different file types (PDF, ZIP, MP4, PPTX)
+- **Demo File Support**: Test the interface with realistic demo files
+- **Chunk Status Monitoring**: See exactly which chunks are available vs missing
+- **Direct Download**: Download reassembled files directly from the web interface
+- **History Tracking**: Keep track of reassembly operations and downloads
 
 **What Happens**:
-- System locates all chunks for the file
+- System locates all chunks for the file across the network
 - Downloads missing chunks from peers (if needed)
-- Decrypts all chunks using your password
+- Decrypts all chunks using secure encryption
 - Decompresses chunks (if they were compressed)
-- Reassembles chunks in correct order
-- Saves the complete file to your specified location
+- Reassembles chunks in correct order with integrity verification
+- Makes the complete file available for download
 
 #### Uploading to Specific Peers
 **Purpose**: Upload files to specific network nodes
@@ -400,6 +431,43 @@ DisktroByte follows a modular, layered architecture:
 - **Purpose**: Get list of connected peers
 - **Response**: JSON array of peer information
 
+##### `GET /api/files/available`
+- **Purpose**: Get list of files available for reassembly
+- **Authentication**: Required
+- **Response**: JSON with files array and metadata
+- **Example Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Available files retrieved",
+    "data": {
+      "files": [
+        {
+          "file_id": "demo-file-001",
+          "file_name": "sample_document.pdf",
+          "file_size": 2048576,
+          "chunk_count": 8,
+          "chunks_available": 8,
+          "status": "demo - ready to download",
+          "description": "Sample PDF document for demonstration"
+        }
+      ],
+      "total_count": 4,
+      "timestamp": "2025-09-08T18:00:00Z"
+    }
+  }
+  ```
+
+##### `GET /api/files/download?file_id=<file_id>`
+- **Purpose**: Download a reassembled file
+- **Authentication**: Required
+- **Parameters**: `file_id`: File identifier
+- **Response**: Binary file data with appropriate headers
+- **Headers**: 
+  - `Content-Disposition: attachment; filename="filename"`
+  - `Content-Type: application/octet-stream` (or specific MIME type)
+  - `Content-Length: <file_size>`
+
 #### P2P Communication Endpoints
 
 ##### `GET /ping`
@@ -456,8 +524,12 @@ DisktroByte follows a modular, layered architecture:
 ```
 DisktroByte/
 ├── cmd/
-│   └── cli/
-│       └── main.go              # Main application entry point
+│   ├── cli/
+│   │   └── main.go             # CLI application entry point
+│   └── gui/
+│       ├── main.go             # GUI application entry point
+│       ├── templates.go        # HTML templates for web interface
+│       └── javascript.go       # JavaScript for web interface
 ├── config/
 │   ├── config.go               # Configuration management
 │   └── config.yaml             # Configuration file
@@ -489,12 +561,16 @@ DisktroByte/
 │       └── logger.go           # Logging utilities
 ├── samples/                    # Sample files for testing
 ├── tests/                      # Test files
-├── web/                        # Web assets (if any)
+├── temp_downloads/             # Temporary download directory
+├── output_chunks/              # Local chunk storage
+├── metadata_db_client/         # BadgerDB metadata (client)
+├── metadata_db_server/         # BadgerDB metadata (server)
 ├── go.mod                      # Go module file
 ├── go.sum                      # Go module checksums
-├── Makefile                    # Build automation
+├── .gitignore                  # Git ignore rules
 ├── README.md                   # This file
-└── start-gui.bat              # Windows startup script
+├── disktroByte.exe            # Built GUI executable
+└── disktroByte-cli.exe        # Built CLI executable
 ```
 
 ### Key Components
@@ -842,7 +918,63 @@ heartbeat_interval: 30  # Adjust based on network stability
 - [ ] Advanced analytics
 - [ ] Multi-language support
 
-## 📄 License
+## 🎆 Recent Achievements
+
+### 🔧 File Reassembly Feature (Latest)
+
+We've recently implemented a comprehensive **File Reassembly System** that brings intelligent file reconstruction to DisktroByte:
+
+#### ✨ **What's New**
+
+- **🎨 Modern Web Interface**: Beautiful file reassembly dashboard with real-time progress tracking
+- **📊 Visual Progress Bars**: Live status updates during file reconstruction process
+- **📁 Smart File Type Detection**: Automatic recognition and proper handling of different file formats
+- **🎯 Chunk Status Monitoring**: Visual indicators showing exactly which chunks are available vs missing
+- **📥 Direct Downloads**: One-click download of reassembled files directly from the web interface
+- **🎦 Demo File Support**: Interactive demo files to test the interface without real data
+
+#### 🚀 **Key Features**
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **File Browsing** | Browse available files with metadata and completion status | ✅ Complete |
+| **Progress Tracking** | Real-time progress bars and status updates | ✅ Complete |
+| **File Type Icons** | Smart icons for PDF, ZIP, MP4, PPTX files | ✅ Complete |
+| **Demo Files** | 4 realistic demo files for testing (PDF, ZIP, MP4, PPTX) | ✅ Complete |
+| **Authentication** | Secure user authentication and session management | ✅ Complete |
+| **Direct Download** | Download reassembled files directly from browser | ✅ Complete |
+| **History Tracking** | Track reassembly operations and downloads | ✅ Complete |
+| **Error Handling** | Comprehensive error handling and user feedback | ✅ Complete |
+
+#### 📊 **Demo Files Available**
+
+1. **📑 sample_document.pdf** (2MB) - Ready to download
+2. **🗜️ example_archive.zip** (10MB) - Ready to download  
+3. **🎥 sample_video.mp4** (50MB) - Partial (97.5% complete)
+4. **📊 presentation.pptx** (15MB) - Ready to download
+
+#### 🛠️ **Technical Implementation**
+
+- **Backend**: New API endpoints (`/api/files/available`, `/api/files/download`)
+- **Frontend**: Enhanced JavaScript with progress tracking and file management
+- **Database**: Improved metadata storage and retrieval
+- **Security**: Authentication-protected endpoints with proper session handling
+- **UX**: Intuitive interface with visual feedback and error handling
+
+#### 🎯 **Usage**
+
+1. Navigate to the **File Reassembly** (🔧) tab
+2. Click **"Refresh Available Files"** to load the file list
+3. View files with completion percentages and status indicators
+4. Click **"Reassemble"** (real files) or **"Prepare"** (demo files)
+5. Monitor real-time progress with visual feedback
+6. Download completed files directly from the interface
+
+This feature represents a significant milestone in making DisktroByte more user-friendly and production-ready for distributed file management scenarios.
+
+---
+
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

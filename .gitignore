@@ -1,4 +1,94 @@
-samples/
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+disktroByte
+disktroByte-cli
+disktroByte.exe
+disktroByte-cli.exe
+
+# Test binaries
+*.test
+
+# Coverage files
+*.out
+*.coverage
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Database files
 metadata_db/
 metadata_db_client/
 metadata_db_server/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local storage directories
+output_chunks/
+temp_downloads/
+reassembled/
+chunks/
+temp/
+tmp/
+
+# Sample and test files
+samples/
+testfiles/
+*.tmp
+*.temp
+
+# Logs
+*.log
+logs/
+
+# Configuration files with secrets
+config/secrets.yaml
+config/local.yaml
+.env
+.env.local
+.env.production
+
+# Build artifacts
+dist/
+build/
+bin/
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Network trace files
+*.cap
+*.pcap
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z

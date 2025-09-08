@@ -1,3 +1,4 @@
-node_id: \"disktrobyte-node-1\"
+node_id: "disktrobyte-gui-node"
 port: 8080
-storage_path: \"./data\"
+storage_path: "./data"
+parallelism_ratio: 2
