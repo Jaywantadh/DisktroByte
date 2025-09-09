@@ -21,6 +21,8 @@ A revolutionary peer-to-peer distributed file system built in Go, featuring auto
 
 DisktroByte is a cutting-edge distributed file system that transforms traditional file storage into a decentralized, fault-tolerant network. Built with modern Go technologies, it provides:
 
+![DisktroByte Logo](assets/images/disktroByte-logo.png)
+
 - **🔐 End-to-end encryption** using ChaCha20-Poly1305
 - **📦 Intelligent compression** with LZ4 algorithm
 - **🌐 P2P networking** for decentralized storage
@@ -38,8 +40,35 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 - **Blockchain Storage**: Decentralized file storage for blockchain applications
 - **Research Data Sharing**: Secure, distributed research data management
 
+## 📸 Screenshots & Visual Overview
+
+### Main Dashboard
+![Main Dashboard](assets/images/dashboard.png)
+*Modern web interface with role-based navigation and real-time status updates*
+
+### File Reassembly Interface
+![File Reassembly](assets/images/file-reassembly.png)
+*Intelligent file reconstruction with progress tracking and direct downloads*
+
+### Network Status Monitor
+![Network Status](assets/images/network-status.png)
+*Real-time peer monitoring with health indicators and connectivity status*
+
+### Authentication System
+![Login Interface](assets/images/login-interface.png)
+*Secure user authentication with registration and session management*
+
+### File Upload & Processing
+![File Upload](assets/images/file-upload.png)
+*Drag-and-drop file upload with chunking progress and distribution status*
+
+---
+
 ## 🏗️ System Architecture
 
+![System Architecture Diagram](assets/images/system-architecture.png)
+
+### Distributed Network Topology
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Node A        │    │   Node B        │    │   Node C        │
@@ -50,7 +79,7 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 │  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
 │        │        │    │        │        │    │        │        │
 │  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
-│  │ P2P       │◄─┼────┼─►│ P2P       │◄─┼────┼─►│ P2P       │  │
+│  │ P2P       │◄─┴────┴─►│ P2P       │◄─┴────┴─►│ P2P       │  │
 │  │ Network   │  │    │  │ Network   │  │    │  │ Network   │  │
 │  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
 │        │        │    │        │        │    │        │        │
@@ -65,6 +94,18 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 │  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
+
+### DisktroByte vs Traditional Storage
+![Comparison Chart](assets/images/comparison-chart.png)
+
+| Feature | Traditional Storage | DisktroByte P2P |
+|---------|--------------------|-----------------|
+| **Single Point of Failure** | ❌ High Risk | ✅ Eliminated |
+| **Scalability** | ⚠️ Limited | ✅ Infinite |
+| **Data Security** | ⚠️ Server Dependent | ✅ End-to-End Encrypted |
+| **File Accessibility** | 🖥️ Server Required | 🌐 Distributed Access |
+| **Storage Costs** | 💰 High & Recurring | 🔄 Shared & Reduced |
+| **Network Resilience** | ❌ Central Dependency | 🔍 Self-Healing Network |
 
 ### Core Components
 
@@ -95,13 +136,52 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 - **Heartbeat Monitoring**: Real-time health monitoring of network nodes
 - **Fault Tolerance**: Automatic failover and recovery mechanisms
 
-### 🎨 User Interface
+### 🎨 User Interface Features
 - **Modern Web GUI**: Beautiful, responsive interface with role-based access
 - **File Reassembly Dashboard**: Intuitive file management and reassembly interface
 - **Real-time Updates**: Live status updates and progress tracking
 - **Cross-platform**: Works on Windows, macOS, and Linux
 - **Authentication System**: Secure user management with session handling
-- **Intuitive Design**: Easy-to-use interface for all skill levels
+- **Drag & Drop Support**: Easy file upload with visual feedback
+- **Progress Visualization**: Real-time progress bars and status indicators
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+- **Dark/Light Theme**: Automatic theme detection and manual toggle
+- **Intuitive Navigation**: Clean, organized interface for all skill levels
+
+### 🆕 New Features (Latest Updates)
+
+#### 🔧 Advanced File Reassembly System
+![File Reassembly Demo](assets/images/reassembly-demo.gif)
+- **Smart File Detection**: Automatic file type recognition with appropriate icons
+- **Visual Progress Tracking**: Real-time progress bars during file reconstruction
+- **Chunk Status Monitoring**: Visual indicators for available vs missing chunks
+- **Direct Browser Downloads**: One-click download of reassembled files
+- **Demo File Testing**: Interactive demo files for testing without real data
+- **History Tracking**: Complete log of reassembly operations and downloads
+
+#### 🔐 Enhanced Authentication & Security
+![Authentication Flow](assets/images/auth-flow.png)
+- **User Registration System**: Complete user onboarding with profile management
+- **Session Management**: Secure session handling with automatic timeout
+- **Role-based Access Control**: Different permission levels (admin, user, viewer)
+- **Password Security**: Secure password hashing and validation
+- **API Authentication**: Protected endpoints with middleware validation
+
+#### 📊 Real-time Dashboard & Monitoring
+![Dashboard Overview](assets/images/dashboard-overview.png)
+- **Live Network Status**: Real-time peer connectivity and health monitoring
+- **File Statistics**: Visual charts showing storage usage and distribution
+- **Performance Metrics**: System performance indicators and resource usage
+- **Activity Logs**: Comprehensive logging of all system operations
+- **Alert System**: Real-time notifications for important events
+
+#### 🌐 Enhanced P2P Networking
+![Network Topology](assets/images/network-topology.png)
+- **Automatic Peer Discovery**: Dynamic discovery and connection to network peers
+- **Load Balancing**: Intelligent distribution of chunks across available nodes
+- **Fault Tolerance**: Automatic failover and recovery mechanisms
+- **Bandwidth Optimization**: Smart bandwidth usage and throttling
+- **Network Diagnostics**: Built-in tools for network troubleshooting
 
 ## 🛠️ Installation
 
@@ -197,7 +277,30 @@ http://localhost:8080
 2. Click "Refresh Network"
 3. Monitor connected peers and their health status
 
-## 📖 Usage Guide
+## 🎦 Interactive Demo & Screenshots
+
+### Try the File Reassembly Feature
+![File Reassembly Interface](assets/images/file-reassembly-interface.png)
+*Experience our new file reassembly system with these demo files:*
+
+| Demo File | Type | Size | Status | Preview |
+|-----------|------|------|--------|---------|
+| 📑 sample_document.pdf | PDF | 2MB | ✅ Ready | ![PDF Preview](assets/images/pdf-preview.png) |
+| 🗜️ example_archive.zip | ZIP | 10MB | ✅ Ready | ![ZIP Preview](assets/images/zip-preview.png) |
+| 🎥 sample_video.mp4 | MP4 | 50MB | ⚠️ 97.5% | ![MP4 Preview](assets/images/mp4-preview.png) |
+| 📊 presentation.pptx | PPTX | 15MB | ✅ Ready | ![PPTX Preview](assets/images/pptx-preview.png) |
+
+### Real-time Progress Tracking
+![Progress Tracking](assets/images/progress-tracking.gif)
+*Watch files being reassembled with visual progress indicators and status updates*
+
+### Network Visualization
+![Network Graph](assets/images/network-graph.png)
+*Monitor your P2P network with our interactive network graph showing peer connections and health status*
+
+---
+
+## 📜 Usage Guide
 
 ### File Operations
 
@@ -559,6 +662,13 @@ DisktroByte/
 │   │   └── server.go           # HTTP server utilities
 │   └── logging/
 │       └── logger.go           # Logging utilities
+├── assets/                     # Visual assets and documentation images
+│   ├── images/                # Images for README and documentation
+│   │   ├── screenshots/       # Application screenshots
+│   │   ├── demos/             # Demo GIFs and animations
+│   │   ├── diagrams/          # Architecture and flow diagrams
+│   │   └── logos/             # Project logos and icons
+│   └── README.md               # Assets documentation
 ├── samples/                    # Sample files for testing
 ├── tests/                      # Test files
 ├── temp_downloads/             # Temporary download directory
@@ -921,6 +1031,7 @@ heartbeat_interval: 30  # Adjust based on network stability
 ## 🎆 Recent Achievements
 
 ### 🔧 File Reassembly Feature (Latest)
+![File Reassembly Banner](assets/images/file-reassembly-banner.png)
 
 We've recently implemented a comprehensive **File Reassembly System** that brings intelligent file reconstruction to DisktroByte:
 
