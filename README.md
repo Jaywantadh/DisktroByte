@@ -2,10 +2,15 @@
 
 A revolutionary peer-to-peer distributed file system built in Go, featuring automatic file chunking, compression, encryption, distributed storage, and intelligent file reassembly across a network of nodes.
 
+## Documentation
+### Tap here ⬇️
+
+[![Documentation](https://github.com/Jaywantadh/Images/blob/main/DisktroByteLogo.png)](https://long-phase-95351982.figma.site/#overview)
+
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [System Architecture](#system-architecture)
+- [Overview](#Overview)
+- [System Architecture](#System-Architecture)
 - [Key Features](#key-features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -18,6 +23,8 @@ A revolutionary peer-to-peer distributed file system built in Go, featuring auto
 - [License](#license)
 
 ## 🌟 Overview
+
+![Overveiw](https://github.com/Jaywantadh/Images/blob/main/Overveiw.png)
 
 DisktroByte is a cutting-edge distributed file system that transforms traditional file storage into a decentralized, fault-tolerant network. Built with modern Go technologies, it provides:
 
@@ -66,7 +73,7 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 
 ## 🏗️ System Architecture
 
-![System Architecture Diagram](assets/images/system-architecture.png)
+![System-Architecture](https://github.com/Jaywantadh/Images/blob/main/System-Architecture.png)
 
 ### Distributed Network Topology
 ```
@@ -117,6 +124,8 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
 6. **Compression Engine**: LZ4 compression for optimal storage
 
 ## ✨ Key Features
+
+![Key-Features](https://github.com/Jaywantadh/Images/blob/main/Key-features.png)
 
 ### 🔐 Security Features
 - **ChaCha20-Poly1305 Encryption**: Military-grade encryption for all files
@@ -224,6 +233,10 @@ DisktroByte is a cutting-edge distributed file system that transforms traditiona
    # Option 3: CLI version
    go run ./cmd/cli/main.go
    ```
+
+## Data Flow
+
+![Data-Flow](https://github.com/Jaywantadh/Images/blob/main/DataFlow.png)
 
 ## 🚀 Quick Start
 
