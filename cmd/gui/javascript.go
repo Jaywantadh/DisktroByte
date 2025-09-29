@@ -136,9 +136,12 @@ func getJavaScript() string {
                 console.error('Logout error:', error);
             }
 
-            currentUser = null;
-            sessionToken = null;
-            showLoginScreen();
+		// Close SSE connection
+		closeLogSSE();
+		
+		currentUser = null;
+		sessionToken = null;
+		showLoginScreen();
         }
 
         // UI management
@@ -494,16 +497,57 @@ func getJavaScript() string {
             }, 5000);
         }
 
-        async function loadSentFiles() {
-            try {
-                const response = await apiCall('/api/files/logs');
-                if (response && response.success) {
-                    displaySentFiles(response.data.logs || response.data);
-                }
-            } catch (error) {
-                console.error('Failed to load sent files:', error);
-            }
-        }
+	async function loadSentFiles() {
+		try {
+			// First try to get actual files from the files list API
+			const filesResponse = await apiCall('/api/files/list');
+			if (filesResponse && filesResponse.success && filesResponse.data.files && filesResponse.data.files.length > 0) {
+				console.log('📜 Found actual files in system:', filesResponse.data.files.length);
+				displaySentFilesFromAPI(filesResponse.data.files);
+				return;
+			}
+			
+			// Fallback to logs-based approach
+			const response = await apiCall('/api/files/logs');
+			if (response && response.success) {
+				displaySentFiles(response.data.logs || response.data);
+			}
+		} catch (error) {
+			console.error('Failed to load sent files:', error);
+		}
+	}
+	
+	function displaySentFilesFromAPI(files) {
+		const container = document.getElementById('sentFilesList');
+		if (!files || files.length === 0) {
+			container.innerHTML = '<p class="text-muted">No files uploaded yet.</p>';
+			return;
+		}
+		
+		let html = '';
+		files.forEach(file => {
+			html += '<div class="file-item" style="border-left: 4px solid #10B981; margin-bottom: 15px; padding: 15px; background: rgba(16, 185, 129, 0.05);">' +
+				'<div class="file-info">' +
+					'<h4>📁 ' + (file.file_name || file.name) + '</h4>' +
+					'<div class="file-details">' +
+						'📊 Size: ' + formatFileSize(file.file_size || file.size) + ' | ' +
+						(file.chunk_count ? '🧩 Chunks: ' + file.chunk_count + ' | ' : '') +
+						(file.replica_count ? '🔄 Replicas: ' + file.replica_count + ' | ' : '') +
+						'📅 Date: ' + new Date(file.created_at || Date.now()).toLocaleString() + ' | ' +
+						(file.owner_id ? '👤 Owner: ' + file.owner_id + ' | ' : '') +
+						(file.health_status ? '❤️ Status: ' + file.health_status : '') +
+					'</div>' +
+					(file.description ? '<p style="color: #6c757d; font-size: 0.9em; margin-top: 8px;">' + file.description + '</p>' : '') +
+				'</div>' +
+				'<div class="file-actions">' +
+					'<span class="status-indicator status-online"></span>' +
+					'Uploaded' +
+				'</div>' +
+			'</div>';
+		});
+		
+		container.innerHTML = html;
+	}
 
         function displaySentFiles(logs) {
             const container = document.getElementById('sentFilesList');
@@ -1083,13 +1127,16 @@ func getJavaScript() string {
                 }
             }, 10000);
 
-            // Update file logs every 3 seconds for real-time updates
-            setInterval(() => {
-                if (currentUser && document.getElementById('file-logs').classList.contains('active')) {
-                    loadFileLogs();
-                    showUpdateIndicator('fileLogArea');
-                }
-            }, 3000);
+			// Setup Server-Sent Events for real-time log updates
+			setupLogSSE();
+			
+			// Fallback: Update file logs every 10 seconds if SSE fails
+			setInterval(() => {
+				if (currentUser && document.getElementById('file-logs').classList.contains('active') && !window.logSSEActive) {
+					loadFileLogs();
+					showUpdateIndicator('fileLogArea');
+				}
+			}, 10000);
 
             // Update streaming status every 2 seconds
             setInterval(() => {
@@ -1106,12 +1153,19 @@ func getJavaScript() string {
                 }
             }, 5000);
             
-            // Update sent files list every 5 seconds
-            setInterval(() => {
-                if (currentUser && document.getElementById('send-files').classList.contains('active')) {
-                    loadSentFiles();
-                }
-            }, 5000);
+		// Update sent files list every 5 seconds
+		setInterval(() => {
+			if (currentUser && document.getElementById('send-files').classList.contains('active')) {
+				loadSentFiles();
+			}
+		}, 5000);
+		
+		// Update available files for reassembly every 8 seconds
+		setInterval(() => {
+			if (currentUser && document.getElementById('receive-files').classList.contains('active')) {
+				loadAvailableFiles();
+			}
+		}, 8000);
         }
         
         // Add visual feedback for updates
@@ -1126,11 +1180,95 @@ func getJavaScript() string {
             }
         }
 
-        // Additional UI helper functions
-        function editUser(userId) {
-            // TODO: Implement user editing modal
-            console.log('Edit user:', userId);
-        }
+		// Server-Sent Events for real-time log updates
+		let logEventSource = null;
+		window.logSSEActive = false;
+		
+		function setupLogSSE() {
+			if (!currentUser) return;
+			
+			// Close existing connection
+			if (logEventSource) {
+				logEventSource.close();
+			}
+			
+			try {
+				logEventSource = new EventSource('/api/files/logs/stream');
+				window.logSSEActive = true;
+				
+				logEventSource.onopen = function(event) {
+					console.log('✅ SSE connection established for logs');
+					showLogSSEStatus('connected');
+				};
+				
+				logEventSource.onmessage = function(event) {
+					try {
+						const logEvent = JSON.parse(event.data);
+						
+						if (logEvent.type === 'log') {
+							// Update the logs display if the file-logs section is active
+							if (document.getElementById('file-logs').classList.contains('active')) {
+								displayFileLogs(logEvent.data);
+								showUpdateIndicator('fileLogArea');
+								console.log('📊 Updated logs via SSE:', logEvent.data.total_logs + ' logs');
+							}
+						} else if (logEvent.type === 'heartbeat') {
+							// Handle heartbeat to keep connection alive
+							showLogSSEStatus('active');
+						}
+					} catch (error) {
+						console.error('Error parsing SSE log event:', error);
+					}
+				};
+				
+				logEventSource.onerror = function(event) {
+					console.error('❌ SSE connection error:', event);
+					window.logSSEActive = false;
+					showLogSSEStatus('error');
+					
+					// Reconnect after 5 seconds
+					setTimeout(() => {
+						if (currentUser) {
+							console.log('🔄 Attempting to reconnect SSE...');
+							setupLogSSE();
+						}
+					}, 5000);
+				};
+				
+			} catch (error) {
+				console.error('Failed to setup SSE:', error);
+				window.logSSEActive = false;
+			}
+		}
+		
+		function showLogSSEStatus(status) {
+			const statusElement = document.getElementById('logSSEStatus');
+			if (statusElement) {
+				const statusMap = {
+					'connected': '🟢 Real-time updates connected',
+					'active': '🔵 Real-time updates active',
+					'error': '🔴 Real-time updates disconnected',
+					'reconnecting': '🟡 Reconnecting...',
+				};
+				statusElement.textContent = statusMap[status] || status;
+				statusElement.className = 'sse-status ' + status;
+			}
+		}
+		
+		// Close SSE connection when user logs out
+		function closeLogSSE() {
+			if (logEventSource) {
+				logEventSource.close();
+				logEventSource = null;
+			}
+			window.logSSEActive = false;
+		}
+		
+		// Additional UI helper functions
+		function editUser(userId) {
+			// TODO: Implement user editing modal
+			console.log('Edit user:', userId);
+		}
 
         // File Reassembly Functions
         async function loadAvailableFiles() {
@@ -1213,6 +1351,7 @@ func getJavaScript() string {
             const progressDiv = document.getElementById('reassemblyProgress');
             const progressBar = document.getElementById('reassemblyProgressBar');
             const statusDiv = document.getElementById('reassemblyStatus');
+            const password = (document.getElementById('reassemblyPassword') || {}).value || '';
             
             // Show progress area
             progressDiv.style.display = 'block';
@@ -1236,7 +1375,6 @@ func getJavaScript() string {
             try {
                 // Check if this is a demo file
                 if (fileId.startsWith('demo-file-')) {
-                    // Enhanced demo file preparation with more realistic messages
                     setTimeout(() => {
                         statusDiv.innerHTML = '<div class="status info">📦 Preparing demo file (' + fileName + ')...</div>';
                     }, 800);
@@ -1246,10 +1384,8 @@ func getJavaScript() string {
                         progressBar.style.width = '100%';
                         progressBar.textContent = '100%';
                         statusDiv.innerHTML = '<div class="status success">✅ Demo file ' + fileName + ' is ready! <button class="btn btn-sm" onclick="downloadFile(\'' + fileId + '\', \'' + fileName + '\')" style="margin-left: 10px;">📥 Download Now</button></div>';
-                        
-                        // Add to history
                         addToReassemblyHistory(fileId, fileName, 'demo-prepared');
-                    }, 2500); // Slightly longer for better UX
+                    }, 2500);
                 } else {
                     // For real files, use the actual reassembly API
                     const response = await fetch('/api/dfs/reassemble', {
@@ -1260,7 +1396,8 @@ func getJavaScript() string {
                         credentials: 'include',
                         body: JSON.stringify({
                             file_id: fileId,
-                            output_path: './reassembled/' + fileName
+                            output_path: './reassembled/' + fileName,
+                            password: password
                         })
                     });
 
@@ -1272,8 +1409,6 @@ func getJavaScript() string {
                         progressBar.style.width = '100%';
                         progressBar.textContent = '100%';
                         statusDiv.innerHTML = '<div class="status success">File reassembled successfully! <button class="btn btn-sm" onclick="downloadFile(\'' + fileId + '\', \'' + fileName + '\')" style="margin-left: 10px;">📥 Download Now</button></div>';
-                        
-                        // Add to history
                         addToReassemblyHistory(fileId, fileName, 'completed');
                     } else {
                         statusDiv.innerHTML = '<div class="status error">Reassembly failed: ' + result.message + '</div>';
@@ -1287,19 +1422,16 @@ func getJavaScript() string {
 
         async function downloadFile(fileId, fileName) {
             try {
-                // Create a temporary link to trigger download
+                const password = (document.getElementById('reassemblyPassword') || {}).value || '';
                 const link = document.createElement('a');
-                link.href = '/api/files/download?file_id=' + encodeURIComponent(fileId);
+                link.href = '/api/files/download?file_id=' + encodeURIComponent(fileId) + (password ? '&password=' + encodeURIComponent(password) : '');
                 link.download = fileName;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 
-                // Show success message
                 const statusDiv = document.getElementById('reassemblyStatus');
                 statusDiv.innerHTML = '<div class="status success">Download started for ' + fileName + '</div>';
-                
-                // Add to history
                 addToReassemblyHistory(fileId, fileName, 'downloaded');
                 
             } catch (error) {

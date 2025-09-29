@@ -75,9 +75,13 @@ func (d *Distributor) SetReplicaCount(count int) {
 
 // DistributeFile distributes a file across the P2P network
 func (d *Distributor) DistributeFile(filePath, password string) (*FileInfo, error) {
-	// Generate file ID
-	fileID := uuid.New().String()
 	fileName := filepath.Base(filePath)
+
+	// Calculate file ID as SHA-256 hash of the entire file (consistent with chunker)
+	fileID, err := chunker.CalculateFileHash(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate file ID: %v", err)
+	}
 
 	// Get file size
 	fileInfo, err := os.Stat(filePath)
@@ -254,8 +258,8 @@ func (d *Distributor) ReassembleFile(fileID, outputPath, password string) error 
 		}
 	}
 
-	// Reassemble the file
-	err := chunker.ReassembleFile(file.Name, outputPath, password, d.metaStore, d.store)
+	// Reassemble the file using the file ID (which should be the SHA-256 hash)
+	err := chunker.ReassembleFile(file.ID, outputPath, password, d.metaStore, d.store)
 	if err != nil {
 		return fmt.Errorf("failed to reassemble file: %v", err)
 	}

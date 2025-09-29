@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jaywantadh/DisktroByte/internal/metadata"
+	"github.com/jaywantadh/DisktroByte/internal/storage"
 )
 
 // Node represents a peer in the P2P network
@@ -29,6 +32,8 @@ type Network struct {
 	mu              sync.RWMutex
 	heartbeatTicker *time.Ticker
 	stopChan        chan bool
+	store           storage.Storage            // Storage backend for serving chunks
+	metaStore       *metadata.MetadataStore    // Metadata store for chunk mapping
 }
 
 // NetworkMessage represents messages exchanged between nodes
@@ -54,7 +59,18 @@ func NewNetwork(address string, port int) *Network {
 		},
 		Peers:    make(map[string]*Node),
 		stopChan: make(chan bool),
+		store:    nil, // Storage will be set later
 	}
+}
+
+// SetStorage sets the storage backend for the network
+func (n *Network) SetStorage(store storage.Storage) {
+	n.store = store
+}
+
+// SetMetadataStore sets the metadata store for the network
+func (n *Network) SetMetadataStore(metaStore *metadata.MetadataStore) {
+	n.metaStore = metaStore
 }
 
 // Start initializes the P2P network
@@ -323,8 +339,78 @@ func (n *Network) HandleFileRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (n *Network) HandleChunkRequest(w http.ResponseWriter, r *http.Request) {
-	// Handle chunk requests from other nodes
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get chunk ID from query parameters
+	chunkID := r.URL.Query().Get("id")
+	if chunkID == "" {
+		http.Error(w, "Missing chunk ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if local node has this chunk
+	n.mu.RLock()
+	hasChunk := false
+	for _, chunk := range n.LocalNode.Chunks {
+		if chunk == chunkID {
+			hasChunk = true
+			break
+		}
+	}
+	n.mu.RUnlock()
+
+	if !hasChunk {
+		http.Error(w, "Chunk not found on this node", http.StatusNotFound)
+		return
+	}
+
+	// Check if storage backend is available
+	if n.store == nil {
+		http.Error(w, "Storage backend not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Try to get chunk data from storage
+	// First try direct access by chunkID (in case it's a hash)
+	reader, err := n.store.Get(chunkID)
+	if err != nil {
+		// If direct access fails and we have metadata store, try to map UUID to storage path
+		if n.metaStore != nil {
+			if chunkMeta, metaErr := n.metaStore.GetChunkMetadata(chunkID); metaErr == nil {
+				// Try using the path from metadata
+				reader, err = n.store.Get(chunkMeta.Path)
+				if err != nil {
+					fmt.Printf("❌ Failed to retrieve chunk %s from storage path %s: %v\n", chunkID, chunkMeta.Path, err)
+					http.Error(w, "Chunk not found in storage", http.StatusNotFound)
+					return
+				}
+			} else {
+				fmt.Printf("❌ Failed to retrieve chunk %s from storage and metadata: %v, %v\n", chunkID, err, metaErr)
+				http.Error(w, "Chunk not found", http.StatusNotFound)
+				return
+			}
+		} else {
+			fmt.Printf("❌ Failed to retrieve chunk %s from storage: %v\n", chunkID, err)
+			http.Error(w, "Chunk not found in storage", http.StatusNotFound)
+			return
+		}
+	}
+	defer reader.Close()
+
+	// Set appropriate headers
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.WriteHeader(http.StatusOK)
+
+	// Stream chunk data to the client
+	if _, err := io.Copy(w, reader); err != nil {
+		fmt.Printf("❌ Failed to stream chunk %s: %v\n", chunkID, err)
+		return
+	}
+	
+	fmt.Printf("📤 Successfully served chunk %s to remote node\n", chunkID)
 }
 
 func (n *Network) HandleHeartbeat(w http.ResponseWriter, r *http.Request) {

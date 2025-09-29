@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sort"
 	"sync"
 
 	"bytes"
@@ -19,10 +20,16 @@ import (
 )
 
 type ChunkMetadata struct {
-	Index int
-	Hash  string
-	Path  string
-	Size  int64
+	Index        int    // Position of this chunk in the sequence
+	Hash         string // SHA-256 hash of original chunk data
+	Path         string // Storage path (hash) of encrypted chunk file
+	Size         int64  // Encrypted size of this chunk
+	Offset       int64  // Byte offset in the original file
+	PrevIndex    int    // Index of previous chunk (-1 if first)
+	NextIndex    int    // Index of next chunk (-1 if last)
+	TotalChunks  int    // Total chunks in this file
+	FileID       string // Unique file identifier (SHA-256 of full file)
+	IsCompressed bool   // Whether this chunk was compressed
 }
 
 type chunkTask struct {
@@ -44,6 +51,12 @@ func ChunkAndStore(filePath, password string, metaStore *metadata.MetadataStore,
 	}
 	fileSize := fileInfo.Size()
 	chunkSize := determineChunkSize(fileSize)
+
+	// Calculate FileID (SHA-256 hash of entire file)
+	fileID, err := CalculateFileHash(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate file ID: %v", err)
+	}
 
 	parallelismRatio := config.Config.ParallelismRatio
 	if parallelismRatio <= 0 {
@@ -69,10 +82,13 @@ func ChunkAndStore(filePath, password string, metaStore *metadata.MetadataStore,
 		go func() {
 			defer wg.Done()
 			for task := range taskChan {
-				hash := sha256.Sum256(task.Data)
-				hashStr := hex.EncodeToString(hash[:])
+				// Calculate hash of original data for integrity verification
+				originalHash := sha256.Sum256(task.Data)
+				originalHashStr := hex.EncodeToString(originalHash[:])
 
+				// Process data (compression)
 				var processedData []byte
+				isCompressed := false
 				if compressor.ShouldSkipCompression(filePath) {
 					processedData = task.Data
 				} else {
@@ -82,45 +98,43 @@ func ChunkAndStore(filePath, password string, metaStore *metadata.MetadataStore,
 						return
 					}
 					processedData = compressed
+					isCompressed = true
 				}
 
+				// Encrypt processed data
 				encrypted, err := enc.Encrypt(processedData, password)
 				if err != nil {
 					setErrOnce(&errOnce, &processErr, fmt.Errorf("encryption failed: %v", err))
 					return
 				}
 
+				// Store encrypted chunk (returns storage path/hash)
 				chunkPath, err := store.Put(bytes.NewReader(encrypted))
 				if err != nil {
 					setErrOnce(&errOnce, &processErr, fmt.Errorf("failed to store chunk: %v", err))
 					return
 				}
 
-				info := ChunkMetadata{
-					Index: task.Index,
-					Hash:  hashStr,
-					Path:  chunkPath,
-					Size:  int64(len(encrypted)),
-				}
+				// Calculate offset based on chunk index and size
+				offset := int64(task.Index) * chunkSize
 
-				// Store chunk metadata in BadgerDB
-				if metaStore != nil {
-					chunkMeta := metadata.ChunkMetadata{
-						FileName: fileInfo.Name(),
-						Index:    task.Index,
-						Hash:     hashStr,
-						Path:     chunkPath,
-						Size:     int64(len(encrypted)),
-					}
-					if err := metaStore.PutChunkMetadata(chunkMeta); err != nil {
-						setErrOnce(&errOnce, &processErr, fmt.Errorf("failed to store chunk metadata: %v", err))
-						return
-					}
+				// Create preliminary chunk metadata (linked-list info will be filled later)
+				info := ChunkMetadata{
+					Index:        task.Index,
+					Hash:         originalHashStr, // Hash of original data for verification
+					Path:         chunkPath,       // Storage path (encrypted hash)
+					Size:         int64(len(encrypted)),
+					Offset:       offset,
+					PrevIndex:    -1, // Will be set later
+					NextIndex:    -1, // Will be set later
+					TotalChunks:  0,  // Will be set later
+					FileID:       fileID,
+					IsCompressed: isCompressed,
 				}
 
 				mu.Lock()
 				metadataList = append(metadataList, info)
-				chunkHashes = append(chunkHashes, hashStr)
+				chunkHashes = append(chunkHashes, originalHashStr) // Use original hash
 				mu.Unlock()
 			}
 		}()
@@ -156,11 +170,56 @@ func ChunkAndStore(filePath, password string, metaStore *metadata.MetadataStore,
 		return nil, processErr
 	}
 
-	// Store file metadata in BadgerDB
+	// Sort metadata by index to ensure correct order
+	sortMetadataByIndex(metadataList)
+	totalChunks := len(metadataList)
+
+	// Update all chunks with linked-list information and TotalChunks
+	for i := range metadataList {
+		metadataList[i].TotalChunks = totalChunks
+
+		// Set PrevIndex
+		if i > 0 {
+			metadataList[i].PrevIndex = metadataList[i-1].Index
+		} else {
+			metadataList[i].PrevIndex = -1
+		}
+
+		// Set NextIndex
+		if i < totalChunks-1 {
+			metadataList[i].NextIndex = metadataList[i+1].Index
+		} else {
+			metadataList[i].NextIndex = -1
+		}
+	}
+
+	// Store enhanced chunk metadata in BadgerDB
 	if metaStore != nil {
+		for _, chunk := range metadataList {
+			chunkMeta := metadata.ChunkMetadata{
+				Index:        chunk.Index,
+				Hash:         chunk.Hash,
+				Path:         chunk.Path,
+				Size:         chunk.Size,
+				Offset:       chunk.Offset,
+				PrevIndex:    chunk.PrevIndex,
+				NextIndex:    chunk.NextIndex,
+				TotalChunks:  chunk.TotalChunks,
+				FileID:       chunk.FileID,
+				IsCompressed: chunk.IsCompressed,
+			}
+			if err := metaStore.PutChunkMetadata(chunkMeta); err != nil {
+				return nil, fmt.Errorf("failed to store chunk metadata: %v", err)
+			}
+		}
+
+		// Store file metadata in BadgerDB by both filename and FileID
 		fileMeta := metadata.NewFileMetadata(fileInfo.Name(), fileSize, chunkHashes)
 		if err := metaStore.PutFileMetadata(fileMeta); err != nil {
 			return nil, fmt.Errorf("failed to store file metadata: %v", err)
+		}
+		if err := metaStore.PutFileMetadataByID(fileID, fileMeta); err != nil {
+			return nil, fmt.Errorf("failed to store file metadata by ID: %v", err)
 		}
 	}
 
@@ -168,7 +227,8 @@ func ChunkAndStore(filePath, password string, metaStore *metadata.MetadataStore,
 }
 
 // ChunkAndProcess processes each chunk in memory (no file output)
-func ChunkAndProcess(filePath string, password string, callback func(index int, encrypted []byte)) error {
+// The callback now receives enhanced chunk metadata including FileID and linked-list information
+func ChunkAndProcess(filePath string, password string, callback func(chunkMeta ChunkMetadata, encrypted []byte)) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
@@ -182,6 +242,12 @@ func ChunkAndProcess(filePath string, password string, callback func(index int, 
 	fileSize := fileInfo.Size()
 	chunkSize := determineChunkSize(fileSize)
 
+	// Calculate FileID (SHA-256 hash of entire file)
+	fileID, err := CalculateFileHash(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to calculate file ID: %v", err)
+	}
+
 	parallelismRatio := config.Config.ParallelismRatio
 	if parallelismRatio <= 0 {
 		parallelismRatio = 2 // Default to 2 if config value is invalid
@@ -193,8 +259,11 @@ func ChunkAndProcess(filePath string, password string, callback func(index int, 
 
 	taskChan := make(chan chunkTask, numWorkers*2)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var errOnce sync.Once
 	var processErr error
+	var metadataList []ChunkMetadata
+	var encryptedDataList [][]byte
 
 	enc := encryptor.NewEncryptor()
 
@@ -203,6 +272,9 @@ func ChunkAndProcess(filePath string, password string, callback func(index int, 
 		go func() {
 			defer wg.Done()
 			for task := range taskChan {
+				hash := sha256.Sum256(task.Data)
+				hashStr := hex.EncodeToString(hash[:])
+
 				var processedData []byte
 				if compressor.ShouldSkipCompression(filePath) {
 					processedData = task.Data
@@ -221,7 +293,24 @@ func ChunkAndProcess(filePath string, password string, callback func(index int, 
 					return
 				}
 
-				callback(task.Index, encrypted)
+				// Calculate offset and create chunk metadata
+				offset := int64(task.Index) * chunkSize
+				chunkMeta := ChunkMetadata{
+					Index:       task.Index,
+					Hash:        hashStr,
+					Path:        "", // No path for in-memory processing
+					Size:        int64(len(encrypted)),
+					Offset:      offset,
+					PrevIndex:   -1, // Will be set later
+					NextIndex:   -1, // Will be set later
+					TotalChunks: 0,  // Will be set later
+					FileID:      fileID,
+				}
+
+				mu.Lock()
+				metadataList = append(metadataList, chunkMeta)
+				encryptedDataList = append(encryptedDataList, encrypted)
+				mu.Unlock()
 			}
 		}()
 	}
@@ -252,7 +341,39 @@ func ChunkAndProcess(filePath string, password string, callback func(index int, 
 	close(taskChan)
 	wg.Wait()
 
-	return processErr
+	if processErr != nil {
+		return processErr
+	}
+
+	// Sort metadata by index to ensure correct order
+	sortMetadataByIndex(metadataList)
+	totalChunks := len(metadataList)
+
+	// Update all chunks with linked-list information and TotalChunks
+	for i := range metadataList {
+		metadataList[i].TotalChunks = totalChunks
+
+		// Set PrevIndex
+		if i > 0 {
+			metadataList[i].PrevIndex = metadataList[i-1].Index
+		} else {
+			metadataList[i].PrevIndex = -1
+		}
+
+		// Set NextIndex
+		if i < totalChunks-1 {
+			metadataList[i].NextIndex = metadataList[i+1].Index
+		} else {
+			metadataList[i].NextIndex = -1
+		}
+	}
+
+	// Call callback for each chunk with enhanced metadata and encrypted data
+	for i, chunkMeta := range metadataList {
+		callback(chunkMeta, encryptedDataList[i])
+	}
+
+	return nil
 }
 
 func determineChunkSize(fileSize int64) int64 {
@@ -268,6 +389,31 @@ func determineChunkSize(fileSize int64) int64 {
 	default:
 		return 8 * 1024 * 1024
 	}
+}
+
+// CalculateFileHash computes SHA-256 hash of the entire file
+func CalculateFileHash(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file for hashing: %v", err)
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, file)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate file hash: %v", err)
+	}
+
+	hash := hasher.Sum(nil)
+	return hex.EncodeToString(hash), nil
+}
+
+// sortMetadataByIndex sorts chunk metadata by index to ensure proper ordering
+func sortMetadataByIndex(chunks []ChunkMetadata) {
+	sort.Slice(chunks, func(i, j int) bool {
+		return chunks[i].Index < chunks[j].Index
+	})
 }
 
 func setErrOnce(once *sync.Once, target *error, err error) {

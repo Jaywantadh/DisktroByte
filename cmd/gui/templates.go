@@ -1024,6 +1024,11 @@ func getMainAppHTML() string {
                         <div class="card-body">
                             <p class="text-muted">Browse and reassemble distributed files from the network. Select files to download and reconstruct them from their chunks.</p>
                             
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label for="reassemblyPassword">Decryption Password</label>
+                                <input type="password" id="reassemblyPassword" class="form-control" placeholder="Enter the same password used during upload">
+                            </div>
+                            
                             <div class="form-group" style="margin-bottom: 20px;">
                                 <button class="btn btn-primary" onclick="loadAvailableFiles()" id="refreshFilesBtn">
                                     <i>🔄</i> Refresh Available Files

@@ -5,12 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
+	"github.com/jaywantadh/DisktroByte/internal/compressor"
 	"github.com/jaywantadh/DisktroByte/internal/distributor"
+	"github.com/jaywantadh/DisktroByte/internal/encryptor"
 	"github.com/jaywantadh/DisktroByte/internal/metadata"
 	"github.com/jaywantadh/DisktroByte/internal/p2p"
 	"github.com/jaywantadh/DisktroByte/internal/storage"
@@ -290,15 +293,57 @@ func (fr *FileReassembler) getChunkFromLocalStorage(chunkID string) ([]byte, str
 
 // downloadChunkFromNode downloads a chunk from a specific node
 func (fr *FileReassembler) downloadChunkFromNode(chunkID string, node *p2p.Node) ([]byte, string, error) {
-	// This would implement the actual network download
-	// For now, simulate downloading from the distributor
+	// First check if this is the local node - use local storage
+	if node.ID == fr.network.LocalNode.ID {
+		// Try to get chunk from local storage using chunkID (UUID)
+		if data, hash, err := fr.getChunkFromLocalStorage(chunkID); err == nil {
+			return data, hash, nil
+		}
+		
+		// If that fails, try to get from metadata store to find the storage path
+		if fr.metaStore != nil {
+			if chunkMeta, err := fr.metaStore.GetChunkMetadata(chunkID); err == nil {
+				// Use the path from metadata to retrieve chunk
+				if reader, err := fr.storage.Get(chunkMeta.Path); err == nil {
+					defer reader.Close()
+					data, err := io.ReadAll(reader)
+					if err != nil {
+						return nil, "", fmt.Errorf("failed to read chunk data from path %s: %v", chunkMeta.Path, err)
+					}
+					
+					// Calculate hash for verification
+					hash := sha256.Sum256(data)
+					hashStr := hex.EncodeToString(hash[:])
+					
+					return data, hashStr, nil
+				}
+			}
+		}
+		
+		return nil, "", fmt.Errorf("chunk %s not found locally", chunkID)
+	}
+		
+	// For remote nodes, try to download via HTTP API
+	client := &http.Client{Timeout: 30 * time.Second}
+	url := fmt.Sprintf("http://%s:%d/chunk-request?id=%s", node.Address, node.Port, chunkID)
 	
-	if err := fr.distributor.ReassembleFile("temp-file", "/tmp/temp", ""); err != nil {
-		return nil, "", err
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to request chunk from node %s: %v", node.ID, err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("chunk download failed from node %s: status %d", node.ID, resp.StatusCode)
 	}
 	
-	// Simulate chunk data
-	chunkData := []byte(fmt.Sprintf("chunk-data-%s", chunkID))
+	// Read chunk data
+	chunkData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read chunk data from node %s: %v", node.ID, err)
+	}
+	
+	// Calculate hash for verification
 	hash := sha256.Sum256(chunkData)
 	hashStr := hex.EncodeToString(hash[:])
 	
@@ -333,49 +378,79 @@ func (fr *FileReassembler) recoverChunkFromReplicas(chunkID string) ([]byte, err
 	return nil, fmt.Errorf("failed to recover chunk from any replica")
 }
 
-// assembleFile assembles the final file from downloaded chunks
+// assembleFile assembles the final file from downloaded chunks with enhanced metadata validation
 func (fr *FileReassembler) assembleFile(job *ReassemblyJob, chunkData map[int][]byte, password string) error {
+	// Get chunk metadata for validation and proper ordering
+	chunks, err := fr.metaStore.GetChunksByFileID(job.FileID)
+	if err != nil {
+		return fmt.Errorf("failed to get chunks for FileID %s: %v", job.FileID, err)
+	}
+
+	// Validate chunk chain integrity
+	if err := metadata.ValidateChunkChain(chunks); err != nil {
+		return fmt.Errorf("chunk chain validation failed: %v", err)
+	}
+
 	// Create output directory if it doesn't exist
 	outputDir := filepath.Dir(job.OutputPath)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
-	
+
 	// Create output file
 	outputFile, err := os.Create(job.OutputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %v", err)
 	}
 	defer outputFile.Close()
-	
-	// Write chunks in order
-	chunkIndices := make([]int, 0, len(chunkData))
-	for index := range chunkData {
-		chunkIndices = append(chunkIndices, index)
-	}
-	sort.Ints(chunkIndices)
-	
+
+	// Sort chunks by offset to ensure correct order
+	sortChunksByOffset(chunks)
+
+	// Initialize encryptor and compressor
+	enc := encryptor.NewEncryptor()
+
 	totalBytesWritten := int64(0)
-	for _, index := range chunkIndices {
-		data := chunkData[index]
-		
-		// TODO: Decrypt chunk if needed
+	for i, chunk := range chunks {
+		data, exists := chunkData[chunk.Index]
+		if !exists {
+			return fmt.Errorf("missing chunk data for index %d", chunk.Index)
+		}
+
+		// Decrypt chunk
+		decrypted := data
 		if password != "" {
-			// Implement decryption here
+			decrypted, err = enc.Decrypt(data, password)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt chunk %d: %v", chunk.Index, err)
+			}
 		}
-		
-		// TODO: Decompress chunk if needed
-		// Check if chunk is compressed and decompress
-		
-		bytesWritten, err := outputFile.Write(data)
+
+		// Decompress chunk if needed
+		decompressed := decrypted
+		// Try decompression, fallback to original data if it fails
+		if decompData, err := compressor.DecompressData(decrypted); err == nil {
+			decompressed = decompData
+		}
+
+		// Validate chunk hash
+		hash := sha256.Sum256(decompressed)
+		calculatedHash := hex.EncodeToString(hash[:])
+		if calculatedHash != chunk.Hash {
+			return fmt.Errorf("hash mismatch for chunk %d: expected %s, got %s", 
+				chunk.Index, chunk.Hash, calculatedHash)
+		}
+
+		// Write decompressed data to output file
+		bytesWritten, err := outputFile.Write(decompressed)
 		if err != nil {
-			return fmt.Errorf("failed to write chunk %d: %v", index, err)
+			return fmt.Errorf("failed to write chunk %d: %v", chunk.Index, err)
 		}
-		
+
 		totalBytesWritten += int64(bytesWritten)
-		
+
 		// Update progress
-		progress := 50.0 + (float64(index+1)/float64(len(chunkIndices)))*35.0
+		progress := 50.0 + (float64(i+1)/float64(len(chunks)))*35.0
 		job.Progress = progress
 	}
 	
@@ -383,47 +458,52 @@ func (fr *FileReassembler) assembleFile(job *ReassemblyJob, chunkData map[int][]
 	return nil
 }
 
-// verifyFileIntegrity verifies the integrity of the reassembled file
+// verifyFileIntegrity verifies the integrity of the reassembled file using FileID
 func (fr *FileReassembler) verifyFileIntegrity(job *ReassemblyJob, fileInfo *distributor.FileInfo) error {
 	// Calculate hash of reassembled file
 	fileHash, err := fr.calculateFileHash(job.OutputPath)
 	if err != nil {
 		return fmt.Errorf("failed to calculate file hash: %v", err)
 	}
-	
+
 	job.IntegrityCheck.FileHash = fileHash
 	job.IntegrityCheck.CheckTime = time.Now()
-	
-	// Get expected hash from metadata
-	// TODO: Implement metadata hash lookup
-	// For now, assume file is valid if we can calculate its hash
-	job.IntegrityCheck.ExpectedHash = fileHash
-	job.IntegrityCheck.IsValid = true
-	
-	// Verify individual chunk hashes
-	corruptedChunks := make([]string, 0)
-	for chunkID, actualHash := range job.IntegrityCheck.ChunkHashes {
-		chunkInfo, err := fr.distributor.GetChunkInfo(chunkID)
-		if err != nil {
-			fr.logger.Warnf("⚠️ Could not get info for chunk %s: %v", chunkID, err)
-			continue
+
+	// The expected hash should match the FileID (which is the original file's SHA-256)
+	job.IntegrityCheck.ExpectedHash = job.FileID
+	job.IntegrityCheck.IsValid = (fileHash == job.FileID)
+
+	if !job.IntegrityCheck.IsValid {
+		return fmt.Errorf("file hash mismatch: expected %s (FileID), got %s", 
+			job.FileID, fileHash)
+	}
+
+	// Verify individual chunk hashes using enhanced metadata
+	chunks, err := fr.metaStore.GetChunksByFileID(job.FileID)
+	if err != nil {
+		fr.logger.Warnf("⚠️ Could not get chunks for FileID %s: %v", job.FileID, err)
+	} else {
+		corruptedChunks := make([]string, 0)
+		for _, chunk := range chunks {
+			if actualHash, exists := job.IntegrityCheck.ChunkHashes[chunk.Hash]; exists {
+				if chunk.Hash != actualHash {
+					corruptedChunks = append(corruptedChunks, chunk.Hash)
+					fr.logger.Warnf("❌ Chunk %s is corrupted (expected: %s, actual: %s)", 
+						chunk.Hash, chunk.Hash, actualHash)
+				}
+			}
 		}
-		
-		if chunkInfo.Hash != actualHash {
-			corruptedChunks = append(corruptedChunks, chunkID)
-			fr.logger.Warnf("❌ Chunk %s is corrupted (expected: %s, actual: %s)", 
-				chunkID, chunkInfo.Hash, actualHash)
+
+		job.IntegrityCheck.CorruptedChunks = corruptedChunks
+
+		if len(corruptedChunks) > 0 {
+			job.IntegrityCheck.IsValid = false
+			return fmt.Errorf("%d chunks are corrupted", len(corruptedChunks))
 		}
 	}
-	
-	job.IntegrityCheck.CorruptedChunks = corruptedChunks
-	
-	if len(corruptedChunks) > 0 {
-		job.IntegrityCheck.IsValid = false
-		return fmt.Errorf("%d chunks are corrupted", len(corruptedChunks))
-	}
-	
-	fr.logger.Infof("✅ File integrity verification passed for %s", job.FileName)
+
+	fr.logger.Infof("✅ File integrity verification passed for %s (FileID: %s)", 
+		job.FileName, job.FileID)
 	return nil
 }
 
@@ -543,4 +623,11 @@ func (fr *FileReassembler) GetReassemblyStats() map[string]interface{} {
 	}
 	
 	return stats
+}
+
+// sortChunksByOffset sorts chunks by their offset in the original file
+func sortChunksByOffset(chunks []metadata.ChunkMetadata) {
+	sort.Slice(chunks, func(i, j int) bool {
+		return chunks[i].Offset < chunks[j].Offset
+	})
 }

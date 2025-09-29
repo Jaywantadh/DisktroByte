@@ -1,6 +1,7 @@
 package compressor
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -23,23 +24,23 @@ func ShouldSkipCompression(filePath string) bool {
 }
 
 func CompressChunk(chunkData []byte) ([]byte, error) {
-	var compressed strings.Builder
-	writer := lz4.NewWriter(&compressed)
+	var out bytes.Buffer
+	writer := lz4.NewWriter(&out)
+	// Optionally set defaults or leave as-is
 	if _, err := writer.Write(chunkData); err != nil {
 		return nil, fmt.Errorf("compression failed: %v", err)
 	}
-	writer.Close()
-	return []byte(compressed.String()), nil
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("compression close failed: %v", err)
+	}
+	return out.Bytes(), nil
 }
 
-
 func DecompressData(data []byte) ([]byte, error) {
-	reader := lz4.NewReader(strings.NewReader(string(data)))
-	var decompressed strings.Builder
-
+	reader := lz4.NewReader(bytes.NewReader(data))
+	var decompressed bytes.Buffer
 	if _, err := io.Copy(&decompressed, reader); err != nil {
 		return nil, fmt.Errorf("decompression failed: %v", err)
 	}
-
-	return []byte(decompressed.String()), nil
+	return decompressed.Bytes(), nil
 }

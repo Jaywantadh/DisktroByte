@@ -7,6 +7,10 @@ disktroByte
 disktroByte-cli
 disktroByte.exe
 disktroByte-cli.exe
+reassembled_manual/
+orignal_cache
+optimized_storage
+output_chunks
 
 # Test binaries
 *.test
