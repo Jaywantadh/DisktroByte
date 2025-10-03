@@ -28,7 +28,6 @@ A revolutionary peer-to-peer distributed file system built in Go, featuring auto
 
 DisktroByte is a cutting-edge distributed file system that transforms traditional file storage into a decentralized, fault-tolerant network. Built with modern Go technologies, it provides:
 
-![DisktroByte Logo](assets/images/disktroByte-logo.png)
 
 - **🔐 End-to-end encryption** using ChaCha20-Poly1305
 - **📦 Intelligent compression** with LZ4 algorithm
